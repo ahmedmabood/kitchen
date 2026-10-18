@@ -84,26 +84,33 @@ function smoothstep(x: number, e0: number, e1: number) {
   return t * t * (3 - 2 * t)
 }
 
-/** True below the Tailwind `md` breakpoint (768px). */
-function useIsMobile() {
-  const query = "(max-width: 767px)"
-  const [isMobile, setIsMobile] = React.useState(() =>
-    typeof window === "undefined" ? false : window.matchMedia(query).matches
-  )
+/** Viewport info: mobile flag + a scale for the pastry art that fits its column at each width. */
+function useViewport() {
+  const read = () => {
+    const w = typeof window === "undefined" ? 1280 : window.innerWidth
+    return {
+      isMobile: w < 768,
+      artScale: w < 768 ? 0.62 : w < 1024 ? 0.6 : w < 1280 ? 0.8 : 1,
+    }
+  }
+  const [v, setV] = React.useState(read)
   React.useEffect(() => {
-    const mq = window.matchMedia(query)
-    const on = () => setIsMobile(mq.matches)
+    const on = () =>
+      setV((prev) => {
+        const n = read()
+        return prev.isMobile === n.isMobile && prev.artScale === n.artScale ? prev : n
+      })
     on()
-    mq.addEventListener("change", on)
-    return () => mq.removeEventListener("change", on)
+    window.addEventListener("resize", on)
+    return () => window.removeEventListener("resize", on)
   }, [])
-  return isMobile
+  return v
 }
 
 export function LandingPage() {
   const fixSectionRef = React.useRef<HTMLDivElement>(null)
   const artRef = React.useRef<HTMLDivElement>(null)
-  const isMobile = useIsMobile()
+  const { isMobile, artScale } = useViewport()
   const [reducedMotion, setReducedMotion] = React.useState(false)
   const [counter, setCounter] = React.useState(24)
   const [activeStep, setActiveStep] = React.useState(0)
@@ -228,16 +235,15 @@ export function LandingPage() {
   return (
     <div className="min-h-svh overflow-x-clip bg-background">
       {/* ============ HERO ============ */}
-      <section className="relative flex min-h-svh flex-col justify-center overflow-hidden md:flex-row md:items-center">
-        {/* Art: its own row above the text on mobile, right side on desktop */}
-        <div className="pointer-events-none flex justify-center pt-10 md:absolute md:inset-y-0 md:right-0 md:w-[58%] md:items-center md:pt-0">
-          <ArtFrame scale={isMobile ? 0.62 : 1}>
-            <PastryArt mode="hero" />
-          </ArtFrame>
-        </div>
-
-        <div className="relative mx-auto w-full max-w-6xl px-6 pb-16 pt-6 md:py-24">
-          <div className="max-w-xl">
+      <section className="relative flex min-h-svh items-center overflow-hidden">
+        {/* Two real columns on md+ (text | art) so they can never overlap; art stacks on top on mobile */}
+        <div className="mx-auto grid w-full max-w-6xl items-center gap-4 px-6 pb-16 pt-10 md:grid-cols-2 md:gap-8 md:py-24">
+          <div className="pointer-events-none order-1 flex justify-center md:order-2">
+            <ArtFrame scale={artScale}>
+              <PastryArt mode="hero" />
+            </ArtFrame>
+          </div>
+          <div className="order-2 max-w-xl md:order-1">
             <p className="mb-4 inline-flex items-center gap-2 rounded-full border bg-card px-3 py-1 text-xs font-medium text-muted-foreground">
               <span className="size-2 rounded-full bg-green-600" /> Pre-order storefronts for home kitchens
             </p>
@@ -300,8 +306,10 @@ export function LandingPage() {
               <p className="mt-2 text-xs text-muted-foreground">via Instagram DM · 11:0{i + 2} PM</p>
             </div>
           ))}
-          {/* In flow on mobile (sits below the last bubble), absolute on desktop */}
-          <div className="z-10 mt-2 rounded-xl bg-destructive/10 px-4 py-2 text-center text-sm font-medium text-destructive md:absolute md:bottom-2 md:left-1/2 md:mt-0 md:-translate-x-1/2">
+        </div>
+        {/* Always below the bubbles, in normal flow */}
+        <div className="mt-8 flex justify-center px-6">
+          <div className="rounded-xl bg-destructive/10 px-4 py-2 text-center text-sm font-medium text-destructive">
             ⚠️ You promised 9 boxes. You only have 6 left.
           </div>
         </div>
@@ -310,18 +318,18 @@ export function LandingPage() {
       {/* ============ THE FIX (pinned) ============ */}
       <section ref={fixSectionRef} className="relative" style={{ height: reducedMotion ? "auto" : "300vh" }}>
         <div
-          className="sticky top-0 flex min-h-svh flex-col justify-start overflow-hidden pt-4 md:justify-center md:pt-0"
+          className="sticky top-0 flex min-h-svh items-start overflow-hidden pt-4 md:items-center md:pt-0"
           data-testid="fix-pinned"
         >
-          {/* Cupcakes fly into the box as you scroll. One instance only (it owns artRef). */}
-          <div className="pointer-events-none flex justify-center md:absolute md:inset-y-0 md:right-0 md:w-[58%] md:items-center">
-            <ArtFrame scale={isMobile ? 0.5 : 1}>
-              <PastryArt mode="fix" artRef={artRef} />
-            </ArtFrame>
-          </div>
+          <div className="mx-auto grid w-full max-w-6xl items-center gap-4 px-6 md:grid-cols-2 md:gap-8">
+            {/* One instance only (it owns artRef) */}
+            <div className="pointer-events-none order-1 flex justify-center md:order-2">
+              <ArtFrame scale={isMobile ? 0.5 : artScale}>
+                <PastryArt mode="fix" artRef={artRef} />
+              </ArtFrame>
+            </div>
 
-          <div className="relative mx-auto grid w-full max-w-6xl gap-10 px-6 lg:grid-cols-2">
-            <div className="max-w-md">
+            <div className="order-2 max-w-md md:order-1">
               <p className="text-sm font-semibold uppercase tracking-wide text-primary">The fix</p>
               <h2 className="mt-2 font-display text-2xl font-semibold tracking-tight sm:text-4xl md:mt-3 md:text-3xl">
                 One link. A fixed batch. A calm Friday.
