@@ -73,6 +73,11 @@ const CUPCAKE_START: Array<[number, number]> = [
   [110, -85],
 ]
 
+const SECTION_PAD: React.CSSProperties = {
+  paddingTop: "clamp(5rem, 10vw, 8rem)",
+  paddingBottom: "clamp(5rem, 10vw, 8rem)",
+}
+
 const STAGE_W = 480
 const STAGE_H = 420
 
@@ -201,16 +206,6 @@ export function LandingPage() {
           scrollTrigger: { trigger: el, start: "top 88%" },
         })
       })
-      gsap.utils.toArray<HTMLElement>("[data-feature-card]").forEach((el, i) => {
-        gsap.from(el, {
-          opacity: 0,
-          y: 48,
-          duration: 0.6,
-          delay: (i % 3) * 0.09,
-          ease: "power2.out",
-          scrollTrigger: { trigger: el, start: "top 90%" },
-        })
-      })
     })
     return () => ctx.revert()
   }, [reducedMotion, isMobile])
@@ -226,11 +221,34 @@ export function LandingPage() {
           obs.disconnect()
         }
       },
-      { threshold: 0.3 }
+      { threshold: 0.15 }
     )
     obs.observe(el)
     return () => obs.disconnect()
   }, [])
+
+  // Feature cards: reveal with IntersectionObserver. Unlike a scroll-position tween it can't
+  // get stuck hidden when the layout above changes height after load.
+  React.useEffect(() => {
+    const els = Array.from(document.querySelectorAll<HTMLElement>("[data-reveal]"))
+    if (reducedMotion || typeof IntersectionObserver === "undefined") {
+      els.forEach((el) => el.classList.add("is-in"))
+      return
+    }
+    const obs = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((e) => {
+          if (e.isIntersecting) {
+            e.target.classList.add("is-in")
+            obs.unobserve(e.target)
+          }
+        })
+      },
+      { threshold: 0.05 }
+    )
+    els.forEach((el) => obs.observe(el))
+    return () => obs.disconnect()
+  }, [reducedMotion])
 
   return (
     <div className="min-h-svh overflow-x-clip bg-background">
@@ -339,7 +357,8 @@ export function LandingPage() {
               <div className="mt-4 md:mt-8">
                 <div className="flex items-baseline gap-3">
                   <span
-                    className="font-display text-5xl font-semibold tabular-nums text-primary md:text-6xl"
+                    className="font-display font-semibold tabular-nums text-primary"
+                    style={{ fontSize: "clamp(3.5rem, 7vw, 5.5rem)", lineHeight: 1 }}
                     data-testid="batch-counter"
                   >
                     {counter}
@@ -388,7 +407,7 @@ export function LandingPage() {
       </section>
 
       {/* ============ PREP LIST REVEAL ============ */}
-      <section id="prep-reveal" className="py-20 md:py-28">
+      <section id="prep-reveal" className="relative" style={SECTION_PAD}>
         <div className="mx-auto max-w-4xl px-6">
           <div className="text-center">
             <h2 className="font-display text-3xl font-semibold tracking-tight sm:text-4xl">
@@ -401,10 +420,8 @@ export function LandingPage() {
           </div>
           <div
             className={cn(
-              "mx-auto mt-14 max-w-md rounded-2xl border bg-card shadow-lg transition-all duration-700 [transform-style:preserve-3d]",
-              revealVisible
-                ? "translate-y-0 opacity-100 [transform:perspective(1200px)_rotateX(0deg)]"
-                : "translate-y-12 opacity-0 [transform:perspective(1200px)_rotateX(18deg)]"
+              "mx-auto mt-14 max-w-md rounded-2xl border bg-card shadow-lg transition-all duration-700",
+              revealVisible ? "translate-y-0 opacity-100" : "translate-y-12 opacity-0"
             )}
           >
             <div className="border-b bg-secondary/50 px-6 py-4">
@@ -450,7 +467,7 @@ export function LandingPage() {
       </section>
 
       {/* ============ FEATURES ============ */}
-      <section className="border-t bg-card/40 py-20 md:py-28">
+      <section className="relative border-t bg-card/40" style={SECTION_PAD}>
         <div className="mx-auto max-w-5xl px-6">
           <h2 className="text-center font-display text-3xl font-semibold tracking-tight sm:text-4xl">
             Everything a one-person bakery needs
@@ -459,17 +476,19 @@ export function LandingPage() {
             No apps to manage, no payment gateway. Just a link that does the boring parts.
           </p>
           <div className="mt-14 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-            {FEATURES.map((f) => (
+            {FEATURES.map((f, i) => (
               <div
                 key={f.title}
-                data-feature-card
-                className="group rounded-2xl border bg-card p-6 shadow-sm transition-all duration-500 hover:-translate-y-1 hover:shadow-md"
+                data-reveal
+                style={{ ["--d" as string]: `${(i % 3) * 90}ms` } as React.CSSProperties}
               >
-                <div className="flex size-11 items-center justify-center rounded-xl bg-secondary text-xl transition-transform group-hover:scale-110">
-                  {f.icon}
+                <div className="group h-full rounded-2xl border bg-card p-6 shadow-sm transition-all duration-500 hover:-translate-y-1 hover:shadow-md">
+                  <div className="flex size-11 items-center justify-center rounded-xl bg-secondary text-xl transition-transform group-hover:scale-110">
+                    {f.icon}
+                  </div>
+                  <h3 className="mt-4 font-semibold">{f.title}</h3>
+                  <p className="mt-1.5 text-sm text-muted-foreground">{f.copy}</p>
                 </div>
-                <h3 className="mt-4 font-semibold">{f.title}</h3>
-                <p className="mt-1.5 text-sm text-muted-foreground">{f.copy}</p>
               </div>
             ))}
           </div>
@@ -525,6 +544,16 @@ export function LandingPage() {
             top: var(--bubble-y) !important;
             transform: rotate(var(--bubble-r)) !important;
           }
+        }
+        [data-reveal] {
+          opacity: 0;
+          transform: translateY(40px);
+          transition: opacity 600ms ease-out, transform 600ms ease-out;
+          transition-delay: var(--d, 0ms);
+        }
+        [data-reveal].is-in { opacity: 1; transform: none; }
+        @media (prefers-reduced-motion: reduce) {
+          [data-reveal] { opacity: 1; transform: none; transition: none; }
         }
         @keyframes stamp-in {
           0% { transform: scale(2.2) rotate(-14deg); opacity: 0; }
