@@ -161,7 +161,10 @@ export function OrdersPage() {
         .select("*")
         .eq("seller_id", seller.id)
         .order("pickup_date", { ascending: true })
-      const { data: items } = await supabase.from("batch_items").select("batch_id, units_available")
+      const { data: items } = await supabase
+        .from("batch_items")
+        .select("batch_id, units_available")
+        .in("batch_id", (data ?? []).map((b) => b.id))
       const list = (data ?? []).map((b) => ({
         ...b,
         units_left: (items ?? [])
@@ -219,7 +222,10 @@ export function OrdersPage() {
       .select("*")
       .eq("seller_id", seller.id)
       .order("pickup_date", { ascending: true })
-    const { data: items } = await supabase.from("batch_items").select("batch_id, units_available")
+    const { data: items } = await supabase
+        .from("batch_items")
+        .select("batch_id, units_available")
+        .in("batch_id", (data ?? []).map((b) => b.id))
     setBatches(
       (data ?? []).map((b) => ({
         ...b,
