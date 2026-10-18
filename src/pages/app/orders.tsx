@@ -1,5 +1,5 @@
 import * as React from "react"
-import { ClipboardList, Printer, Loader2, MessageCircle, PackageCheck, Utensils, X, Wallet, Receipt, Hourglass, SkipForward, Activity, Clock, Sparkles, TrendingUp, FileDown } from "lucide-react"
+import { ClipboardList, Printer, Loader2, MessageCircle, PackageCheck, Utensils, X, Wallet, Receipt, Hourglass, SkipForward, Activity, Sparkles, TrendingUp, FileDown } from "lucide-react"
 import { toast } from "sonner"
 import { jsPDF } from "jspdf"
 import { useAuth } from "@/lib/auth"
@@ -500,11 +500,11 @@ function WaitlistCard({
                       {e.phone} · joined {formatDate(e.created_at.slice(0, 10))}
                     </p>
                   </div>
- {e.status !== "offered" && (
-  <Badge variant="secondary" className="shrink-0">
-    Waiting
-  </Badge>
-)}
+                  {e.status !== "offered" && (
+                    <Badge variant="secondary" className="shrink-0">
+                      Waiting
+                    </Badge>
+                  )}
                   {wa && (
                     <Button asChild size="sm" variant="outline" className="rounded-lg">
                       <a href={wa} target="_blank" rel="noopener noreferrer">
@@ -544,13 +544,13 @@ function BatchPulseCard({
   loading: boolean
 }) {
   const maxOrders = Math.max(1, ...(pulse?.orders_per_hour ?? []).map((h) => h.orders))
-  const sellThrough =
-    pulse?.product_sell_through && pulse.product_sell_through.length > 0
-      ? pulse.product_sell_through.map((p) => ({
-          ...p,
-          pct: p.total > 0 ? Math.round((p.sold / p.total) * 100) : 0,
-        }))
-      : []
+  // Hide products with nothing allocated (0/0) so they don't show a misleading 0%
+  const sellThrough = (pulse?.product_sell_through ?? [])
+    .filter((p) => p.total > 0)
+    .map((p) => ({
+      ...p,
+      pct: Math.round((p.sold / p.total) * 100),
+    }))
 
   const timeline = [
     { label: "First order", at: pulse?.first_order_at ?? null },
@@ -602,19 +602,30 @@ function BatchPulseCard({
                 <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                   Orders per hour
                 </p>
-                <div className="mt-2 flex h-24 items-end gap-1">
+                <div className="mt-2 flex h-28 items-end gap-2 border-b">
                   {pulse.orders_per_hour.map((h) => (
                     <div
                       key={h.hour}
-                      className="flex-1 rounded-t bg-primary/80 transition-all"
-                      style={{ height: `${Math.max(6, (h.orders / maxOrders) * 100)}%` }}
+                      className="flex h-full min-w-0 max-w-14 flex-1 flex-col items-center justify-end gap-1"
                       title={`${h.hour}: ${h.orders} ${h.orders === 1 ? "order" : "orders"}`}
-                    />
+                    >
+                      <span className="text-xs font-medium text-foreground">{h.orders}</span>
+                      <div
+                        className="w-full rounded-t-md bg-primary/80 transition-all"
+                        style={{ height: `${Math.max(6, (h.orders / maxOrders) * 70)}%` }}
+                      />
+                    </div>
                   ))}
                 </div>
-                <div className="mt-1 flex justify-between text-[10px] text-muted-foreground">
-                  <span>{pulse.orders_per_hour[0]?.hour}</span>
-                  <span>{pulse.orders_per_hour[pulse.orders_per_hour.length - 1]?.hour}</span>
+                <div className="mt-1 flex gap-2">
+                  {pulse.orders_per_hour.map((h) => (
+                    <span
+                      key={h.hour}
+                      className="min-w-0 max-w-14 flex-1 truncate text-center text-[10px] text-muted-foreground"
+                    >
+                      {h.hour}
+                    </span>
+                  ))}
                 </div>
               </div>
             )}
