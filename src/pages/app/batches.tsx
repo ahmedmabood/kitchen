@@ -81,17 +81,21 @@ export function BatchesPage() {
       setBatches([])
       return
     }
-    if (!batchRows) {
+    if (!batchRows || batchRows.length === 0) {
       setBatches([])
       return
     }
 
+    // Only load items and slots that belong to this seller's batches
+    const batchIds = batchRows.map((b) => b.id)
     const { data: items } = await supabase
       .from("batch_items")
       .select("*, product:products(*)")
+      .in("batch_id", batchIds)
     const { data: slots } = await supabase
       .from("pickup_slots")
       .select("*")
+      .in("batch_id", batchIds)
 
     const list: BatchWithItems[] = batchRows.map((b) => {
       const bItems = (items ?? [])
@@ -669,6 +673,7 @@ function BatchDialog({
   onOpenChange: (open: boolean) => void
   onCreated: () => void
 }) {
+  const { seller } = useAuth()
   const [products, setProducts] = React.useState<Product[] | null>(null)
   const [title, setTitle] = React.useState("")
   const [pickupDate, setPickupDate] = React.useState("")
@@ -680,21 +685,28 @@ function BatchDialog({
   const [saving, setSaving] = React.useState(false)
 
   React.useEffect(() => {
-    if (!open) return
+    if (!open || !seller) return
+    let alive = true
+    setProducts(null)
     ;(async () => {
+      // Only this seller's visible products
       const { data } = await supabase
         .from("products")
         .select("*")
+        .eq("seller_id", seller.id)
         .eq("active", true)
         .order("created_at", { ascending: true })
-      setProducts(data ?? [])
+      if (alive) setProducts(data ?? [])
     })()
     setTitle("")
     setPickupDate("")
     setDraftItems([])
     setDraftSlots([{ start_time: "16:00", end_time: "18:00", max_orders: "10" }])
     setErrors({})
-  }, [open])
+    return () => {
+      alive = false
+    }
+  }, [open, seller?.id])
 
   function toggleProduct(p: Product, checked: boolean) {
     setDraftItems((prev) =>
