@@ -536,6 +536,19 @@ function WaitlistCard({
   )
 }
 
+// The API returns the hour as an offset from the first order (0 = first hour).
+// Turn it into a readable clock time like "7 PM"; fall back to the raw value.
+function hourLabel(hour: string | number, firstOrderAt: string | null): string {
+  const offset = Number(hour)
+  if (!firstOrderAt || !Number.isFinite(offset)) return String(hour)
+  const startHour = parseInt(firstOrderAt.slice(11, 13), 10)
+  if (Number.isNaN(startHour)) return String(hour)
+  const h = (startHour + offset) % 24
+  const suffix = h >= 12 ? "PM" : "AM"
+  const display = h % 12 === 0 ? 12 : h % 12
+  return `${display} ${suffix}`
+}
+
 function BatchPulseCard({
   pulse,
   loading,
@@ -602,12 +615,13 @@ function BatchPulseCard({
                 <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                   Orders per hour
                 </p>
-                <div className="mt-2 flex h-28 items-end gap-2 border-b">
-                  {pulse.orders_per_hour.map((h) => (
+                <div className="mt-2 flex h-28 items-end justify-start gap-2 border-b">
+                  {pulse.orders_per_hour.map((h, idx) => (
                     <div
-                      key={h.hour}
-                      className="flex h-full min-w-0 max-w-14 flex-1 flex-col items-center justify-end gap-1"
-                      title={`${h.hour}: ${h.orders} ${h.orders === 1 ? "order" : "orders"}`}
+                      key={`${h.hour}-${idx}`}
+                      className="flex h-full min-w-0 flex-col items-center justify-end gap-1"
+                      style={{ flex: "1 1 0%", maxWidth: 56 }}
+                      title={`${hourLabel(h.hour, pulse.first_order_at)}: ${h.orders} ${h.orders === 1 ? "order" : "orders"}`}
                     >
                       <span className="text-xs font-medium text-foreground">{h.orders}</span>
                       <div
@@ -617,13 +631,14 @@ function BatchPulseCard({
                     </div>
                   ))}
                 </div>
-                <div className="mt-1 flex gap-2">
-                  {pulse.orders_per_hour.map((h) => (
+                <div className="mt-1 flex justify-start gap-2">
+                  {pulse.orders_per_hour.map((h, idx) => (
                     <span
-                      key={h.hour}
-                      className="min-w-0 max-w-14 flex-1 truncate text-center text-[10px] text-muted-foreground"
+                      key={`${h.hour}-${idx}`}
+                      className="min-w-0 truncate text-center text-[10px] text-muted-foreground"
+                      style={{ flex: "1 1 0%", maxWidth: 56 }}
                     >
-                      {h.hour}
+                      {hourLabel(h.hour, pulse.first_order_at)}
                     </span>
                   ))}
                 </div>
