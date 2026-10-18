@@ -500,15 +500,11 @@ function WaitlistCard({
                       {e.phone} · joined {formatDate(e.created_at.slice(0, 10))}
                     </p>
                   </div>
-                  {e.status === "offered" ? (
-                    <Badge className="shrink-0">
-                      <Clock className="size-3" /> Offer sent
-                    </Badge>
-                  ) : (
-                    <Badge variant="secondary" className="shrink-0">
-                      Waiting
-                    </Badge>
-                  )}
+ {e.status !== "offered" && (
+  <Badge variant="secondary" className="shrink-0">
+    Waiting
+  </Badge>
+)}
                   {wa && (
                     <Button asChild size="sm" variant="outline" className="rounded-lg">
                       <a href={wa} target="_blank" rel="noopener noreferrer">
