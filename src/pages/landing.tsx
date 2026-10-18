@@ -73,6 +73,9 @@ const CUPCAKE_START: Array<[number, number]> = [
   [110, -85],
 ]
 
+const STAGE_W = 480
+const STAGE_H = 420
+
 function clamp01(n: number) {
   return Math.min(1, Math.max(0, n))
 }
@@ -81,9 +84,26 @@ function smoothstep(x: number, e0: number, e1: number) {
   return t * t * (3 - 2 * t)
 }
 
+/** True below the Tailwind `md` breakpoint (768px). */
+function useIsMobile() {
+  const query = "(max-width: 767px)"
+  const [isMobile, setIsMobile] = React.useState(() =>
+    typeof window === "undefined" ? false : window.matchMedia(query).matches
+  )
+  React.useEffect(() => {
+    const mq = window.matchMedia(query)
+    const on = () => setIsMobile(mq.matches)
+    on()
+    mq.addEventListener("change", on)
+    return () => mq.removeEventListener("change", on)
+  }, [])
+  return isMobile
+}
+
 export function LandingPage() {
   const fixSectionRef = React.useRef<HTMLDivElement>(null)
   const artRef = React.useRef<HTMLDivElement>(null)
+  const isMobile = useIsMobile()
   const [reducedMotion, setReducedMotion] = React.useState(false)
   const [counter, setCounter] = React.useState(24)
   const [activeStep, setActiveStep] = React.useState(0)
@@ -156,7 +176,8 @@ export function LandingPage() {
     }
   }, [reducedMotion])
 
-  // GSAP scroll animations: chaos bubbles fly in, feature cards stagger
+  // GSAP scroll animations: chaos bubbles fly in, feature cards stagger.
+  // On mobile the bubbles only fade/slide up (no rotation) so the stacked list stays tidy.
   React.useEffect(() => {
     if (reducedMotion) return
     const { gsap } = LazyGsap
@@ -164,9 +185,9 @@ export function LandingPage() {
       gsap.utils.toArray<HTMLElement>("[data-chaos-bubble]").forEach((el, i) => {
         gsap.from(el, {
           opacity: 0,
-          y: 90,
-          x: i % 2 === 0 ? -50 : 50,
-          rotation: i % 2 === 0 ? -16 : 14,
+          y: isMobile ? 40 : 90,
+          x: isMobile ? 0 : i % 2 === 0 ? -50 : 50,
+          rotation: isMobile ? 0 : i % 2 === 0 ? -16 : 14,
           duration: 0.8,
           delay: i * 0.12,
           ease: "power3.out",
@@ -185,7 +206,7 @@ export function LandingPage() {
       })
     })
     return () => ctx.revert()
-  }, [reducedMotion])
+  }, [reducedMotion, isMobile])
 
   // Prep list reveal on scroll
   React.useEffect(() => {
@@ -207,13 +228,15 @@ export function LandingPage() {
   return (
     <div className="min-h-svh overflow-x-clip bg-background">
       {/* ============ HERO ============ */}
-      <section className="relative flex min-h-svh items-center overflow-hidden">
-        {/* Pastry box illustration (pure CSS) */}
-        <div className="pointer-events-none absolute inset-y-0 right-0 flex w-full items-center justify-center opacity-40 md:w-[58%] md:opacity-100">
-          <PastryArt mode="hero" className="scale-[0.7] md:scale-100" />
+      <section className="relative flex min-h-svh flex-col justify-center overflow-hidden md:flex-row md:items-center">
+        {/* Art: its own row above the text on mobile, right side on desktop */}
+        <div className="pointer-events-none flex justify-center pt-10 md:absolute md:inset-y-0 md:right-0 md:w-[58%] md:items-center md:pt-0">
+          <ArtFrame scale={isMobile ? 0.62 : 1}>
+            <PastryArt mode="hero" />
+          </ArtFrame>
         </div>
 
-        <div className="relative mx-auto w-full max-w-6xl px-6 py-24">
+        <div className="relative mx-auto w-full max-w-6xl px-6 pb-16 pt-6 md:py-24">
           <div className="max-w-xl">
             <p className="mb-4 inline-flex items-center gap-2 rounded-full border bg-card px-3 py-1 text-xs font-medium text-muted-foreground">
               <span className="size-2 rounded-full bg-green-600" /> Pre-order storefronts for home kitchens
@@ -248,7 +271,7 @@ export function LandingPage() {
       </section>
 
       {/* ============ THE CHAOS ============ */}
-      <section className="relative overflow-hidden py-28">
+      <section className="relative overflow-hidden py-20 md:py-28">
         <div className="mx-auto max-w-5xl px-6 text-center">
           <h2 className="font-display text-3xl font-semibold tracking-tight sm:text-4xl">
             Orders in DMs get lost, <span className="text-destructive">oversold</span> and forgotten.
@@ -258,7 +281,8 @@ export function LandingPage() {
             got a confirmation. And you still don't know how many loaves to bake.
           </p>
         </div>
-        <div className="relative mx-auto mt-16 flex max-w-4xl flex-wrap justify-center gap-4 px-6 md:block md:h-72">
+        {/* Mobile: normal vertical stack. Desktop (md+): scattered absolute layout. */}
+        <div className="relative mx-auto mt-12 flex max-w-4xl flex-col items-center gap-4 px-6 md:mt-16 md:block md:h-72">
           {CHAT_BUBBLES.map((b, i) => (
             <div
               key={i}
@@ -269,21 +293,15 @@ export function LandingPage() {
                   ["--bubble-x" as string]: b.x,
                   ["--bubble-y" as string]: b.y,
                   ["--bubble-r" as string]: `${b.r}deg`,
-                  left: undefined,
-                  top: undefined,
-                  transform: undefined,
                 } as React.CSSProperties
               }
-              data-x={b.x}
-              data-y={b.y}
-              data-r={b.r}
             >
               <p className="text-sm font-medium">“{b.text}”</p>
               <p className="mt-2 text-xs text-muted-foreground">via Instagram DM · 11:0{i + 2} PM</p>
             </div>
           ))}
-          {/* scattered notification pile */}
-          <div className="absolute bottom-2 left-1/2 z-10 -translate-x-1/2 rounded-xl bg-destructive/10 px-4 py-2 text-sm font-medium text-destructive">
+          {/* In flow on mobile (sits below the last bubble), absolute on desktop */}
+          <div className="z-10 mt-2 rounded-xl bg-destructive/10 px-4 py-2 text-center text-sm font-medium text-destructive md:absolute md:bottom-2 md:left-1/2 md:mt-0 md:-translate-x-1/2">
             ⚠️ You promised 9 boxes. You only have 6 left.
           </div>
         </div>
@@ -292,26 +310,28 @@ export function LandingPage() {
       {/* ============ THE FIX (pinned) ============ */}
       <section ref={fixSectionRef} className="relative" style={{ height: reducedMotion ? "auto" : "300vh" }}>
         <div
-          className="sticky top-0 flex min-h-svh items-center overflow-hidden"
+          className="sticky top-0 flex min-h-svh flex-col justify-start overflow-hidden pt-4 md:justify-center md:pt-0"
           data-testid="fix-pinned"
         >
-          {/* Cupcakes fly into the box as you scroll (pure CSS, driven by CSS variables) */}
-          <div className="pointer-events-none absolute inset-y-0 right-0 flex w-full items-center justify-center opacity-30 md:w-[58%] md:opacity-100">
-            <PastryArt mode="fix" artRef={artRef} className="scale-[0.7] md:scale-100" />
+          {/* Cupcakes fly into the box as you scroll. One instance only (it owns artRef). */}
+          <div className="pointer-events-none flex justify-center md:absolute md:inset-y-0 md:right-0 md:w-[58%] md:items-center">
+            <ArtFrame scale={isMobile ? 0.5 : 1}>
+              <PastryArt mode="fix" artRef={artRef} />
+            </ArtFrame>
           </div>
 
           <div className="relative mx-auto grid w-full max-w-6xl gap-10 px-6 lg:grid-cols-2">
             <div className="max-w-md">
               <p className="text-sm font-semibold uppercase tracking-wide text-primary">The fix</p>
-              <h2 className="mt-3 font-display text-3xl font-semibold tracking-tight sm:text-4xl">
+              <h2 className="mt-2 font-display text-2xl font-semibold tracking-tight sm:text-4xl md:mt-3 md:text-3xl">
                 One link. A fixed batch. A calm Friday.
               </h2>
 
               {/* Animated counter */}
-              <div className="mt-8">
+              <div className="mt-4 md:mt-8">
                 <div className="flex items-baseline gap-3">
                   <span
-                    className="font-display text-6xl font-semibold tabular-nums text-primary"
+                    className="font-display text-5xl font-semibold tabular-nums text-primary md:text-6xl"
                     data-testid="batch-counter"
                   >
                     {counter}
@@ -326,7 +346,7 @@ export function LandingPage() {
                 </div>
                 {showStamp && (
                   <div
-                    className="mt-5 inline-block -rotate-6 rounded-lg border-4 border-destructive px-5 py-2 font-display text-2xl font-bold text-destructive"
+                    className="mt-4 inline-block -rotate-6 rounded-lg border-4 border-destructive px-4 py-1 font-display text-xl font-bold text-destructive md:mt-5 md:px-5 md:py-2 md:text-2xl"
                     style={{
                       animation: reducedMotion ? undefined : "stamp-in 300ms ease-out",
                     }}
@@ -338,12 +358,12 @@ export function LandingPage() {
               </div>
 
               {/* Step captions */}
-              <div className="mt-10 space-y-4">
+              <div className="mt-5 space-y-2 md:mt-10 md:space-y-4">
                 {STEP_CAPTIONS.map((s, i) => (
                   <div
                     key={i}
                     className={cn(
-                      "flex items-start gap-3 rounded-xl border bg-card/80 p-4 transition-opacity duration-500",
+                      "flex items-start gap-3 rounded-xl border bg-card/80 p-3 transition-opacity duration-500 md:p-4",
                       reducedMotion || activeStep === i ? "opacity-100" : "opacity-30"
                     )}
                   >
@@ -360,7 +380,7 @@ export function LandingPage() {
       </section>
 
       {/* ============ PREP LIST REVEAL ============ */}
-      <section id="prep-reveal" className="py-28">
+      <section id="prep-reveal" className="py-20 md:py-28">
         <div className="mx-auto max-w-4xl px-6">
           <div className="text-center">
             <h2 className="font-display text-3xl font-semibold tracking-tight sm:text-4xl">
@@ -422,7 +442,7 @@ export function LandingPage() {
       </section>
 
       {/* ============ FEATURES ============ */}
-      <section className="border-t bg-card/40 py-28">
+      <section className="border-t bg-card/40 py-20 md:py-28">
         <div className="mx-auto max-w-5xl px-6">
           <h2 className="text-center font-display text-3xl font-semibold tracking-tight sm:text-4xl">
             Everything a one-person bakery needs
@@ -449,7 +469,7 @@ export function LandingPage() {
       </section>
 
       {/* ============ FINAL CTA ============ */}
-      <section className="relative overflow-hidden py-32">
+      <section className="relative overflow-hidden py-24 md:py-32">
         <div
           className="pointer-events-none absolute inset-0 opacity-40"
           style={{
@@ -510,7 +530,7 @@ export function LandingPage() {
            --l: cupcakes lower into the box      (0..1)
            --c: lid closes                       (0..1)
            Stage origin is its centre; units are px. */
-        .pb-stage { --a: 0; --l: 0; --c: 0; position: relative; width: 480px; height: 420px; flex: none; }
+        .pb-stage { --a: 0; --l: 0; --c: 0; position: relative; width: ${STAGE_W}px; height: ${STAGE_H}px; flex: none; }
         .pb-stage--hero { --c: 1; }
         .pb-group { position: absolute; inset: 0; }
         .pb-stage--hero .pb-group { animation: pb-float 6s ease-in-out infinite; }
@@ -580,6 +600,40 @@ export function LandingPage() {
           .pb-group, .pb-cc-in { animation: none !important; }
         }
       `}</style>
+    </div>
+  )
+}
+
+/**
+ * Reserves layout space that matches the *scaled* size of the art.
+ * CSS `transform: scale()` alone doesn't change layout size, which is why
+ * the unscaled 480×420 stage used to spill behind the text on mobile.
+ */
+function ArtFrame({
+  scale,
+  children,
+  className,
+}: {
+  scale: number
+  children: React.ReactNode
+  className?: string
+}) {
+  return (
+    <div
+      className={cn("relative shrink-0", className)}
+      style={{ width: STAGE_W * scale, height: STAGE_H * scale }}
+    >
+      <div
+        className="absolute left-1/2 top-1/2"
+        style={{
+          width: STAGE_W,
+          height: STAGE_H,
+          transform: `translate(-50%, -50%) scale(${scale})`,
+          transformOrigin: "center",
+        }}
+      >
+        {children}
+      </div>
     </div>
   )
 }
